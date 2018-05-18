@@ -4,7 +4,7 @@ import re
 import numpy as np
 
 
-sents = open('icwb2-data/training/msr_training.utf8').read()
+sents = open('../icwb2-data/training/msr_training.utf8').read()
 sents = sents.decode('utf-8').strip()
 sents = sents.split('\r\n') # 这个语料的换行符是\r\n
 
@@ -61,7 +61,7 @@ def train_generator(): # 定义数据生成器
 
 from crf_keras import CRF
 from keras.layers import Dense, Embedding, Conv1D, Input
-from keras.model_trains import Model # 这里我们学习使用Model型的模型
+from keras.models import Model # 这里我们学习使用Model型的模型
 import keras.backend as K # 引入Keras后端来自定义loss，注意Keras模型内的一切运算
                           # 必须要通过Keras后端完成，比如取对数要用K.log不能用np.log
 
