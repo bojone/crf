@@ -135,7 +135,7 @@ class Evaluate(Callback):
     def __init__(self):
         self.highest = 0.
     def on_epoch_end(self, epoch, logs=None):
-        _ = model_train.get_weights()[-1][:4,:4]
+        _ = model_train.get_weights()[-1][:4,:4] # 从训练模型中取出最新得到的转移矩阵
         trans = {}
         for i in 'sbme':
             for j in 'sbme':
