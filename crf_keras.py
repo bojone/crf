@@ -43,7 +43,7 @@ class CRF(Layer):
         return point_proba+trans_proba # 两部分得分之和
     def call(self, inputs):
         inputs,labels = inputs # 以“预测值+目标(one hot)”为输入
-        mask = 1-labels[:,:,-1] if self.ignore_last_label else None
+        mask = 1-labels[:,1:,-1] if self.ignore_last_label else None
         inputs,labels = inputs[:,:,:self.num_labels],labels[:,:,:self.num_labels]
         init_states = [inputs[:,0]] # 初始状态
         log_norm,_,_ = K.rnn(self.log_norm_step, inputs[:,1:], init_states, mask=mask) # 计算Z向量（对数）
