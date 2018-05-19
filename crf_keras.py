@@ -15,7 +15,7 @@ class CRF(Layer):
         self.ignore_last_label = 1 if ignore_last_label else 0
         super(CRF, self).__init__(**kwargs)
     def build(self, input_shape):
-        self.num_labels = input_shape[0][-1] - self.ignore_last_label
+        self.num_labels = input_shape[-1] - self.ignore_last_label
         self.trans = self.add_weight(name='crf_trans',
                                      shape=(self.num_labels, self.num_labels),
                                      initializer='glorot_uniform',
@@ -41,12 +41,13 @@ class CRF(Layer):
         trans = K.expand_dims(K.expand_dims(self.trans, 0), 0)
         trans_score = K.sum(K.sum(trans*labels, [2,3]), 1, keepdims=True)
         return point_score+trans_score # 两部分得分之和
-    def call(self, inputs):
-        inputs,labels = inputs # 以“预测值+目标(one hot)”为输入
-        mask = 1-labels[:,1:,-1] if self.ignore_last_label else None
-        inputs,labels = inputs[:,:,:self.num_labels],labels[:,:,:self.num_labels]
-        init_states = [inputs[:,0]] # 初始状态
-        log_norm,_,_ = K.rnn(self.log_norm_step, inputs[:,1:], init_states, mask=mask) # 计算Z向量（对数）
+    def call(self, inputs): # CRF本身不改变输出，它只是一个loss
+        return inputs
+    def loss(self, y_true, y_pred): # 目标y_pred需要是one hot形式
+        mask = 1-y_true[:,1:,-1] if self.ignore_last_label else None
+        y_pred,y_true = y_pred[:,:,:self.num_labels],y_true[:,:,:self.num_labels]
+        init_states = [y_pred[:,0]] # 初始状态
+        log_norm,_,_ = K.rnn(self.log_norm_step, y_pred[:,1:], init_states, mask=mask) # 计算Z向量（对数）
         log_norm = K.logsumexp(log_norm, 1, keepdims=True) # 计算Z（对数）
-        path_score = self.path_score(inputs, labels) # 计算分子（对数）
+        path_score = self.path_score(y_pred, y_true) # 计算分子（对数）
         return log_norm - path_score # 即log(分子/分母)
