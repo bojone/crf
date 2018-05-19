@@ -55,7 +55,7 @@ def train_generator(): # 定义数据生成器
                 X = [x+[0]*(maxlen-len(x)) for x in X] # 不足则补零
                 Y = [y+[4]*(maxlen-len(y)) for y in Y] # 不足则补第五个标签
                 Y = np.expand_dims(np.array(Y), 2)
-                yield [np.array(X),to_categorical(Y, 5)], Y
+                yield np.array(X),to_categorical(Y, 5)
                 X,Y = [],[]
 
 
@@ -67,21 +67,23 @@ import keras.backend as K # 引入Keras后端来自定义loss，注意Keras模�
 
 embedding_size = 128
 sequence = Input(shape=(None,), dtype='int32') # 建立输入层，输入长度设为None
-labels = Input(shape=(None,5), dtype='float32')
 embedding = Embedding(len(chars)+1,
                       embedding_size,
                      )(sequence) # 去掉了mask_zero=True
 cnn = Conv1D(128, 3, activation='relu', padding='same')(embedding)
 cnn = Conv1D(128, 3, activation='relu', padding='same')(cnn)
 cnn = Conv1D(128, 3, activation='relu', padding='same')(cnn) # 层叠了3层CNN
+
+crf = CRF(True) # 定义crf层，参数为True，自动mask掉最有一个标签
 tag_score = Dense(5)(cnn) # 变成了5分类，第五个标签用来mask掉
-crf = CRF(True)([tag_score, labels]) # 参数为True，自动mask掉最有一个标签
+tag_score = crf(tag_score) # 包装一下原来的tag_score
 
-model_train = Model(inputs=[sequence,labels], outputs=crf) # CRF仅用来训练
-model_predict = Model(inputs=sequence, outputs=tag_score) # 预测模型分开写
+model = Model(inputs=sequence, outputs=tag_score)
+model.summary()
 
-model_train.compile(loss=lambda y_true,y_pred: y_pred,
-              optimizer='adam')
+model.compile(loss=crf.loss, # 用crf自带的loss
+              optimizer='adam',
+              metrics=['accuracy'])
 
 
 def max_in_dict(d): # 定义一个求字典中最大值的函数
@@ -113,7 +115,7 @@ def cut(s, trans): # 分词函数，也跟前面的HMM基本一致
     # 所以这里简单将空格的id跟句号的id等同起来
     sent_ids = np.array([[char2id.get(c, 0) if c != ' ' else char2id[u'。']
                           for c in s]])
-    probas = model_predict.predict(sent_ids)[0] # 模型预测
+    probas = model.predict(sent_ids)[0] # 模型预测
     nodes = [dict(zip('sbme', i)) for i in probas[:, :4]] # 只取前4个
     nodes[0] = {i:j for i,j in nodes[0].items() if i in 'bs'} # 首字标签只能是b或s
     nodes[-1] = {i:j for i,j in nodes[-1].items() if i in 'es'} # 末字标签只能是e或s
@@ -135,7 +137,7 @@ class Evaluate(Callback):
     def __init__(self):
         self.highest = 0.
     def on_epoch_end(self, epoch, logs=None):
-        _ = model_train.get_weights()[-1][:4,:4] # 从训练模型中取出最新得到的转移矩阵
+        _ = model.get_weights()[-1][:4,:4] # 从训练模型中取出最新得到的转移矩阵
         trans = {}
         for i in 'sbme':
             for j in 'sbme':
@@ -154,7 +156,7 @@ class Evaluate(Callback):
 
 
 evaluator = Evaluate() # 建立Callback类
-model_train.fit_generator(train_generator(),
+model.fit_generator(train_generator(),
                     steps_per_epoch=500,
                     epochs=10,
                     callbacks=[evaluator]) # 训练并将evaluator加入到训练过程
