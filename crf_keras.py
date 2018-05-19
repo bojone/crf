@@ -51,7 +51,7 @@ class CRF(Layer):
         log_norm = K.logsumexp(log_norm, 1, keepdims=True) # 计算Z（对数）
         path_score = self.path_score(y_pred, y_true) # 计算分子（对数）
         return log_norm - path_score # 即log(分子/分母)
-    def accuracy(self, y_true, y_pred):
+    def accuracy(self, y_true, y_pred): # 训练过程中显示逐帧准确率的函数，排除了mask的影响
         mask = 1-y_true[:,:,-1] if self.ignore_last_label else None
         y_true,y_pred = y_true[:,:,:self.num_labels],y_pred[:,:,:self.num_labels]
         isequal = K.equal(K.argmax(y_true, 2), K.argmax(y_pred, 2))
