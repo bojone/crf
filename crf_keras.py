@@ -45,9 +45,18 @@ class CRF(Layer):
         return inputs
     def loss(self, y_true, y_pred): # 目标y_pred需要是one hot形式
         mask = 1-y_true[:,1:,-1] if self.ignore_last_label else None
-        y_pred,y_true = y_pred[:,:,:self.num_labels],y_true[:,:,:self.num_labels]
+        y_true,y_pred = y_true[:,:,:self.num_labels],y_pred[:,:,:self.num_labels]
         init_states = [y_pred[:,0]] # 初始状态
         log_norm,_,_ = K.rnn(self.log_norm_step, y_pred[:,1:], init_states, mask=mask) # 计算Z向量（对数）
         log_norm = K.logsumexp(log_norm, 1, keepdims=True) # 计算Z（对数）
         path_score = self.path_score(y_pred, y_true) # 计算分子（对数）
         return log_norm - path_score # 即log(分子/分母)
+    def accuracy(self, y_true, y_pred):
+        mask = 1-y_true[:,:,-1] if self.ignore_last_label else None
+        y_true,y_pred = y_true[:,:,:self.num_labels],y_pred[:,:,:self.num_labels]
+        isequal = K.equal(K.argmax(y_true, 2), K.argmax(y_pred, 2))
+        isequal = K.cast(isequal, 'float32')
+        if mask == None:
+            return K.mean(isequal)
+        else:
+            return K.sum(isequal*mask) / K.sum(mask)
