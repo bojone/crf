@@ -54,7 +54,6 @@ def train_generator(): # 定义数据生成器
                 maxlen = max([len(x) for x in X]) # 找出最大字数
                 X = [x+[0]*(maxlen-len(x)) for x in X] # 不足则补零
                 Y = [y+[4]*(maxlen-len(y)) for y in Y] # 不足则补第五个标签
-                Y = np.expand_dims(np.array(Y), 2)
                 yield np.array(X),to_categorical(Y, 5)
                 X,Y = [],[]
 
