@@ -73,7 +73,7 @@ cnn = Conv1D(128, 3, activation='relu', padding='same')(embedding)
 cnn = Conv1D(128, 3, activation='relu', padding='same')(cnn)
 cnn = Conv1D(128, 3, activation='relu', padding='same')(cnn) # 层叠了3层CNN
 
-crf = CRF(True) # 定义crf层，参数为True，自动mask掉最有一个标签
+crf = CRF(True) # 定义crf层，参数为True，自动mask掉最后一个标签
 tag_score = Dense(5)(cnn) # 变成了5分类，第五个标签用来mask掉
 tag_score = crf(tag_score) # 包装一下原来的tag_score
 
