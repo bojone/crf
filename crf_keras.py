@@ -25,10 +25,13 @@ class CRF(Layer):
         要点：1、递归计算；2、用logsumexp避免溢出。
         技巧：通过expand_dims来对齐张量。
         """
-        states = K.expand_dims(states[0], 2) # (batch_size, output_dim, 1)
-        trans = K.expand_dims(self.trans, 0) # (1, output_dim, output_dim)
-        output = K.logsumexp(states+trans, 1) # (batch_size, output_dim)
-        return output+inputs, [output+inputs]
+        inputs, mask = inputs[:, :-1], inputs[:, -1:]
+        states = K.expand_dims(states[0], 2)  # (batch_size, output_dim, 1)
+        trans = K.expand_dims(self.trans, 0)  # (1, output_dim, output_dim)
+        outputs = K.logsumexp(states + trans, 1)  # (batch_size, output_dim)
+        outputs = outputs + inputs
+        outputs = mask * outputs + (1 - mask) * states[:, :, 0]
+        return outputs, [outputs]
     def path_score(self, inputs, labels):
         """计算目标路径的相对概率（还没有归一化）
         要点：逐标签得分，加上转移概率得分。
@@ -44,12 +47,16 @@ class CRF(Layer):
     def call(self, inputs): # CRF本身不改变输出，它只是一个loss
         return inputs
     def loss(self, y_true, y_pred): # 目标y_pred需要是one hot形式
-        mask = 1-y_true[:,1:,-1] if self.ignore_last_label else None
+        if self.ignore_last_label:
+            mask = 1-y_true[:,1:,-1:]
+        else:
+            mask = K.ones_like(y_pred[:, :, :1])
         y_true,y_pred = y_true[:,:,:self.num_labels],y_pred[:,:,:self.num_labels]
-        init_states = [y_pred[:,0]] # 初始状态
-        log_norm,_,_ = K.rnn(self.log_norm_step, y_pred[:,1:], init_states, mask=mask) # 计算Z向量（对数）
-        log_norm = K.logsumexp(log_norm, 1, keepdims=True) # 计算Z（对数）
         path_score = self.path_score(y_pred, y_true) # 计算分子（对数）
+        init_states = [y_pred[:,0]] # 初始状态
+        y_pred = K.concatenate([y_pred, mask])
+        log_norm,_,_ = K.rnn(self.log_norm_step, y_pred[:,1:], init_states) # 计算Z向量（对数）
+        log_norm = K.logsumexp(log_norm, 1, keepdims=True) # 计算Z（对数）
         return log_norm - path_score # 即log(分子/分母)
     def accuracy(self, y_true, y_pred): # 训练过程中显示逐帧准确率的函数，排除了mask的影响
         mask = 1-y_true[:,:,-1] if self.ignore_last_label else None
