@@ -48,9 +48,9 @@ class CRF(Layer):
         return inputs
     def loss(self, y_true, y_pred): # 目标y_pred需要是one hot形式
         if self.ignore_last_label:
-            mask = 1-y_true[:,1:,-1:]
+            mask = 1-y_true[:,:,-1:]
         else:
-            mask = K.ones_like(y_pred[:, :, :1])
+            mask = K.ones_like(y_pred[:,:,:1])
         y_true,y_pred = y_true[:,:,:self.num_labels],y_pred[:,:,:self.num_labels]
         path_score = self.path_score(y_pred, y_true) # 计算分子（对数）
         init_states = [y_pred[:,0]] # 初始状态
